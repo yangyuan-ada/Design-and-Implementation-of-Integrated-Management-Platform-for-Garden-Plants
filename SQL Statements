@@ -1,0 +1,828 @@
+SQL Statements for Building Project Database
+
+1. 数据表DDL语句
+  1.1 植物基本信息表
+CREATE TABLE A_Plant (
+    id CHAR(4) NOT NULL,
+    altername VARCHAR(255) NOT NULL,
+    familyname VARCHAR(255) NOT NULL,
+    feature VARCHAR(255) DEFAULT NULL,
+    value VARCHAR(255) DEFAULT NULL,
+    skill VARCHAR(255) DEFAULT NULL,
+    classifyID INT NOT NULL,
+    disAreaID VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (classifyID) REFERENCES B_Classification (classifyID),
+    FOREIGN KEY (disAreaID) REFERENCES B_Area (disAreaID)
+);
+  1.2 图片表
+CREATE TABLE A_Picture (
+    photoId CHAR(4) NOT NULL,
+    photoPlace VARCHAR(255) DEFAULT NULL,
+    photoDes VARCHAR(255) DEFAULT NULL,
+    photoPer VARCHAR(255) DEFAULT NULL,
+    photoPath VARCHAR(255) DEFAULT NULL,
+    PRIMARY KEY (photoId)
+);
+1.3 植物配图表
+CREATE TABLE A_Plant_Picture (
+    photoId CHAR(4) NOT NULL,
+    plantId CHAR(4) NOT NULL,
+    PRIMARY KEY (photoId, plantId),
+    FOREIGN KEY (photoId) REFERENCES A_Picture (photoId),
+    FOREIGN KEY (plantId) REFERENCES A_Plant (id)
+);
+2. 索引DDL语句
+CREATE INDEX idx_picture_person ON A_Picture (photoPer);
+CREATE INDEX idx_Plant_Kind ON A_Plant (classifyID);
+CREATE INDEX idx_Plant_Place ON A_Plant (disAreaID);
+CREATE INDEX idx_PlantPicture_photo ON A_Plant_Picture (photoId);
+CREATE INDEX idx_PlantPicture_plant ON A_Plant_Picture (plantId);
+3. 视图DDL语句
+3.1 植物配图视图
+CREATE VIEW PlantPictureView AS
+SELECT
+    p.id,
+    p.altername,
+    pic.photoId,
+    pic.photoPlace,
+    pic.photoPer,
+    pic.photoPath
+FROM
+    A_Plant p
+JOIN
+    A_Plant_Picture pp ON p.id = pp.plantId
+JOIN
+    A_Picture pic ON pp.photoId = pic.photoId;
+查询视图
+SELECT * FROM PlantPictureView;
+3.2 查询属于蔷薇科的植物信息
+CREATE VIEW 蔷薇科_View AS
+SELECT
+    p.id,
+    p.altername,
+    c1.alterName AS 科,
+    c2.alterName AS 属
+FROM
+    A_Plant p
+JOIN
+    B_Classification c1 ON p.classifyID = c1.classifyID
+JOIN
+    B_Classification c2 ON c1.classifyID = c2.classifyID_parent
+WHERE
+    c1.alterName = '蔷薇科';
+查询视图
+SELECT * FROM 蔷薇科_View;
+3.3 查询图片拍摄人员为小四的植物及图片相关信息
+CREATE VIEW PhotoView AS
+SELECT
+    p.altername,
+    pic.photoPlace,
+    pic.photoPer,
+    pic.photoPath
+FROM
+    A_Plant p
+JOIN
+    A_Plant_Picture pp ON p.id = pp.plantId
+JOIN
+    A_Picture pic ON pp.photoId = pic.photoId
+WHERE
+    pic.photoPer = '小四';
+查询视图
+SELECT * FROM PhotoView;
+3.4 查询植物应用价值中包含观赏的植物信息
+CREATE VIEW PlantValue_View AS
+SELECT
+    p.id,
+    p.altername,
+    p.feature,
+    p.value,
+    p.skill
+FROM
+    A_Plant p
+WHERE
+    p.value LIKE '%观赏%';
+查询视图
+SELECT * FROM PlantValue_View;
+3.5 查询分布地区在江苏省的植物
+CREATE VIEW Area_江苏省 AS
+SELECT
+    p.id,
+    p.altername,
+    a.area,
+    a.province,
+    a.city
+FROM
+    A_Plant p
+JOIN
+    B_Area a ON p.disAreaID = a.disAreaID
+WHERE
+    a.province = '江苏省';
+查询视图
+SELECT * FROM Area_江苏省;
+3.6 创建视图查询各科植物的总数
+CREATE VIEW PlantCountByKind AS
+SELECT
+    B_Classification.classifyID AS kind_id,
+    B_Classification.alterName AS kind_name,
+    COUNT(A_Plant.id) AS plant_count
+FROM
+    B_Classification
+LEFT JOIN
+    A_Plant ON B_Classification.classifyID = A_Plant.classifyID
+WHERE
+    B_Classification.classifyType = '科'
+GROUP BY
+    B_Classification.classifyID,
+    B_Classification.alterName;
+
+
+
+
+
+
+
+
+
+1.数据表DDL语句
+1. 数据表DDL语句
+1.1 植物分类表
+CREATE TABLE B_Classification (
+  classifyID INT PRIMARY KEY,
+  alterName VARCHAR(255),
+  classifyType VARCHAR(50),
+  classifyID_parent INT,
+  FOREIGN KEY (classifyID_parent) REFERENCES B_Classification(classifyID)
+);
+1.2 分布区域表
+CREATE TABLE B_Area (
+  areaID INT PRIMARY KEY,
+  disAreaID VARCHAR(255),
+  alterName VARCHAR(255),
+  area nchar(10),
+  province VARCHAR(255),
+  city VARCHAR(255),
+  FOREIGN KEY (areaID) REFERENCES B_Classification(classifyID)
+);
+1.3 修改信息表
+CREATE TABLE B_Change (
+  changeID INT PRIMARY KEY,
+  alterName VARCHAR(255),
+  createPerson VARCHAR(255),
+  innovationTime DATETIME,
+  updateTime DATETIME,
+ );
+1.4 生长环境表
+CREATE TABLE B_Envir(
+  envirID INT PRIMARY KEY,
+  classifyID INT,
+  envir VARCHAR(255),
+  area nchar(10),
+  FOREIGN KEY (classifyID) REFERENCES B_Classification(classifyID)
+);
+
+2. 索引DDL语句
+2.1植物的别名索引
+CREATE INDEX idx_classifyID ON B_Classification (alterName);
+2.2植物的地区编号索引
+CREATE INDEX idx_disAreaID ON B_Area (disAreaID);
+2.3植物的修改编号索引
+CREATE INDEX idx_changeID ON B_Change (changeID);
+2.4人员名称索引
+CREATE INDEX idx_createPerson ON B_Change (createPerson);
+2.5生长环境索引
+CREATE INDEX idx_envir ON B_Envir (Envir);
+
+3. 视图DDL语句
+3.1 查询某植物的所有分类信息
+CREATE VIEW PlantInfo AS
+SELECT  B_Classification.classifyID,
+  B_Classification.alterName,
+  B_Classification.classifyType,
+  B_Classification.classifyID_parent,
+  B_Area.disAreaID,
+  B_Area.area,
+  B_Envir.Envir
+FROM B_Classification
+JOIN B_Area ON B_Classification.classifyID = B_Area.disAreaID
+JOIN B_Envir ON B_Classification.classifyID = B_Envir.classifyID;
+3.2 查询植物的分布地区与生长环境
+CREATE VIEW ALLinfor AS
+SELECT B_Classification.classifyID, 
+ B_Classification.alterName, 
+ B_Classification.classifyType, 
+ B_Envir.Envir,
+ B_Envir.area
+FROM B_Classification
+JOIN B_Envir ON B_Classification.classifyID = B_Envir.classifyID;
+3.3 查找属于温带季风气候丘陵这个环境的植物以及其信息
+CREATE VIEW findInfor AS
+SELECT  B_Change.alterName, 
+  B_Area.area, 
+  B_Change.createPerson AS Creator,
+  B_Change.innovationTime AS CreationTime
+FROM B_Change
+JOIN B_Area ON B_Change.changeID = B_Area.disAreaID
+JOIN B_Envir ON B_Area.area = B_Envir.area
+WHERE B_Envir.Envir = '温带季风气候丘陵';
+
+
+
+
+
+
+1.数据表DDL语句
+1.1任务表
+CREATE TABLE C_Task (
+  taskID INT PRIMARY KEY,
+  taskName VARCHAR(255),
+  taskDes VARCHAR(255)
+); 
+1.2养护表
+CREATE TABLE C_Maintenance (
+  mainID INT PRIMARY KEY,
+  mainTime DATE,
+  mainLoc VARCHAR(255),
+  mainPer VARCHAR(255),
+  plantId CHAR(4) NOT NULL,
+  status VARCHAR(255) CHECK (status IN ('已完成', '进行中', '未完成')),
+  FOREIGN KEY (plantId) REFERENCES A_Plant (id)
+);
+1.3任务养护表
+CREATE TABLE C_TaskMaintenance (
+  mainID INT,
+  taskID INT,
+  PRIMARY KEY (mainID, taskID),
+  FOREIGN KEY (mainID) REFERENCES C_Maintenance (mainID),
+  FOREIGN KEY (taskID) REFERENCES C_Task (taskID)
+);
+ 
+2.索引DDL语句
+2.1任务编号索引
+CREATE INDEX idx_taskID ON C_Task (taskID);
+2.2任务名称索引
+CREATE INDEX idx_taskName ON C_Task (taskName);
+2.3养护编号索引
+CREATE INDEX idx_maintenanceID ON C_Maintenance (mainID);
+2.4养护名称索引
+CREATE INDEX idx_maintenancePer ON C_Maintenance (mainPer);
+2.5养护状态索引
+CREATE INDEX idx_maintenancestatus ON C_Maintenance (status);
+ 
+3.视图DDL语句
+3.1人物任务视图：使用于工具间保证人物可以对应任务找到对应工具
+CREATE VIEW C_PersonTask AS
+SELECT 
+    m.mainPer,
+    t.taskName
+FROM C_Task t
+LEFT JOIN C_TaskMaintenance tm ON t.taskID = tm.taskID
+LEFT JOIN C_Maintenance m ON tm.mainID = m.mainID;
+3.2时间地点人物视图：使用于办公室保证人物可以对应时间找到对应地点
+CREATE VIEW C_TimePersonLocation AS
+SELECT 
+    m.mainTime,
+    m.mainPer,
+    m.mainLoc
+FROM C_Maintenance m;
+3.3人物植物任务视图：使用于园林地点保证人物可以对应任务找到对应植物
+CREATE VIEW C_PersonTaskPlant AS
+SELECT 
+    m.mainPer,
+    t.taskName,
+    p.altername
+FROM C_Task t
+LEFT JOIN C_TaskMaintenance tm ON t.taskID = tm.taskID
+LEFT JOIN C_Maintenance m ON tm.mainID = m.mainID
+LEFT JOIN A_Plant p ON m.plantId = p.id;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.数据表DDL语句
+1.1 药剂表
+CREATE TABLE D_Medicine ( 
+    mediID INT PRIMARY KEY, 
+    mediName VARCHAR(255), 
+    mediDos INT, 
+    dataAct DATE
+);
+1.2 病虫害表
+CREATE TABLE D_Pest ( 
+    pestID INT PRIMARY KEY, 
+    pestName VARCHAR(255)
+);
+1.3 防治表
+CREATE TABLE D_Control ( 
+    conID INT PRIMARY KEY, 
+    conTime DATE, 
+    conLoc VARCHAR(255),
+    conPer VARCHAR(255), 
+    status VARCHAR(255) CHECK (status IN ('已完成', '进行中', '未完成')),
+    id char(4) NOT NULL, 
+    FOREIGN KEY (id) REFERENCES A_Plant (id)
+);
+1.4 药剂虫害防治表
+CREATE TABLE D_MediPestCon ( 
+    conID INT, 
+    pestID INT, 
+    mediID INT, 
+    FOREIGN KEY (conID) REFERENCES D_Control(conID),
+    FOREIGN KEY (pestID) REFERENCES D_Pest(pestID), 
+    FOREIGN KEY (mediID) REFERENCES D_Medicine(mediID), 
+    PRIMARY KEY (conID, pestID, mediID) 
+);
+
+2. 索引DDL语句 
+2.1  药剂编号索引
+CREATE INDEX idx_medicineID ON D_Medicine (mediID);
+2.2  植物id，防治时间排序索引
+CREATE INDEX idx_plantId_conTime ON D_Control(id, conTime); 
+2.3 防治编号索引
+CREATE INDEX idx_controlID ON D_Control (conID);
+2.4 药剂名称索引
+CREATE INDEX idx_mediName ON D_Medicine (mediName);
+2.5 病虫索引
+CREATE INDEX idx_pestName ON D_Pest (pestName);
+
+3. 视图DDL语句
+3.1 查询某一地点聚集病虫视图
+CREATE VIEW D_LocationPestInfo AS  
+SELECT   
+    D_Control.conLoc,   
+    D_Pest.pestName  
+FROM   
+    D_Control  
+JOIN   
+    D_MediPestCon ON D_Control.conID = D_MediPestCon.conID  
+JOIN   
+    D_Pest ON D_MediPestCon.pestID = D_Pest.pestID  
+WHERE   
+    D_Control.conLoc IS NOT NULL  
+ORDER BY conLoc  
+OFFSET 0 ROWS  
+FETCH NEXT 100 ROWS ONLY;
+3.2 系统人员查询某一防治人员近期使用药物信息
+CREATE VIEW D_MedicationUsage AS  
+SELECT   
+    D_Control.conPer,  
+    D_Medicine.mediName  
+FROM   
+    D_Control  
+JOIN   
+    D_MediPestCon ON D_Control.conID = D_MediPestCon.conID  
+JOIN   
+    D_Medicine ON D_MediPestCon.mediID = D_Medicine.mediID
+ORDER BY conPer 
+OFFSET 0 ROWS  
+FETCH NEXT 100 ROWS ONLY;
+3.3 药剂使用详细视图
+CREATE VIEW D_AllMediPestCon AS  
+SELECT
+    D_MediPestCon.conID,   
+    D_MediPestCon.pestID,   
+    D_MediPestCon.mediID,  
+    D_Control.conTime,   
+    D_Control.conLoc,  
+    D_Control.conPer,  
+    D_Medicine.mediName,   
+    D_Pest.pestName  
+FROM   
+    D_MediPestCon 
+JOIN   
+    D_Control ON D_MediPestCon.conID = D_Control.conID  
+JOIN   
+    D_Medicine ON D_MediPestCon.mediID = D_Medicine.mediID  
+JOIN   
+    D_Pest ON D_MediPestCon.pestID = D_Pest.pestID;
+3.4 具体植物就病信息视图    
+CREATE VIEW PlantControlView AS
+SELECT A_Plant.id AS PlantID, A_Plant.altername, D_Control.conID, D_Control.conTime, D_Control.conLoc, D_Control.conPer, D_Control.status
+FROM A_Plant
+LEFT JOIN D_Control ON A_Plant.id = D_Control.id;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.数据表DDL语句
+1.1设备表
+CREATE TABLE E_Equipment (
+  equipNum INT PRIMARY KEY,
+  equipName VARCHAR(255)
+);
+1.2指标表
+CREATE TABLE E_Indicator(
+  indexNum INT PRIMARY KEY,
+  indexName VARCHAR(255)
+);
+1.3监测表
+CREATE TABLE E_Detection(
+  detecNum INT PRIMARY KEY,
+  detecTime DATE,
+  detecLoc VARCHAR(255),
+  detecPer VARCHAR(255),
+  status VARCHAR(255) CHECK (status IN ('已完成', '进行中', '未完成')),
+  plantId CHAR(4) NOT NULL,
+  FOREIGN KEY (plantId) REFERENCES A_Plant (id)
+);
+1.4设备指标监测表
+CREATE TABLE E_EquipDetecIndica(
+  equipNum INT,
+  indexNum INT,
+  detecNum INT,
+  PRIMARY KEY (equipNum, indexNum, detecNum),
+  FOREIGN KEY (equipNum) REFERENCES E_Equipment (equipNum),
+  FOREIGN KEY (indexNum) REFERENCES E_Indicator (indexNum),
+  FOREIGN KEY (detecNum) REFERENCES E_Detection (detecNum)
+);
+
+2.索引DDL语句
+2.1监测编号索引
+CREATE INDEX idx_detectionNum ON E_Detection (detecNum);
+2.2监测人物索引
+CREATE INDEX idx_detectionPer ON E_Detection (detecPer);
+2.3监测状态索引
+CREATE INDEX idx_detectionstatus ON E_Detection (status);
+2.4设备编号索引
+CREATE INDEX idx_equimentNum ON E_Equipment (equipNum);
+2.5指标编号索引
+CREATE INDEX idx_indicatorNum ON E_Indicator (indexNum);
+
+3.视图DDL语句
+3.1时间地点人物视图：使用于办公室保证人物可以对应时间找到对应地点
+CREATE VIEW E_TimePersonLocation AS
+SELECT 
+    d.detecTime,
+    d.detecPer,
+    d.detecLoc
+FROM E_Detection d;
+3.2植物设备指标视图：使用于园林地点保证植物可以对应设备找到对应指标
+CREATE VIEW E_PlantEquipmentIndicator AS
+SELECT 
+p.alterName,
+e.equipName,
+i.indexName
+FROM E_EquipDetecIndica edi
+JOIN E_Equipment e ON edi.equipNum = e.equipNum
+JOIN E_Indicator i ON edi.indexNum = i.indexNum
+JOIN E_Detection d ON edi.detecNum = d.detecNum
+JOIN A_Plant p ON d.plantId = p.id;
+3.3人物设备指标视图：使用于工作间保证人物可以对应设备找到对应指标
+CREATE VIEW E_PersonEquipmentIndicator AS
+SELECT 
+d.detecPer,
+e.equipName,
+i.indexName
+FROM E_EquipDetecIndica edi
+JOIN E_Equipment e ON edi.equipNum = e.equipNum
+JOIN E_Indicator i ON edi.indexNum = i.indexNum
+JOIN E_Detection d ON edi.detecNum = d.detecNum;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.视图：
+1.1植物信息和植物分类交互
+视图查询各科植物的总数
+CREATE VIEW PlantCountByKind AS
+SELECT
+    B_Classification.classifyID AS kind_id,
+    B_Classification.alterName AS kind_name,
+    COUNT(A_Plant.id) AS plant_count
+FROM
+    B_Classification
+LEFT JOIN
+    A_Plant ON B_Classification.classifyID = A_Plant.classifyID
+WHERE
+    B_Classification.classifyType = '科'
+GROUP BY
+    B_Classification.classifyID,
+    B_Classification.alterName;
+1.2植物信息和养护管理交互
+人物植物任务视图：使用于园林地点保证人物可以对应任务找到对应植物
+CREATE VIEW C_PersonTaskPlant AS
+SELECT 
+    m.mainPer,
+    t.taskName,
+    p.altername
+FROM C_Task t
+LEFT JOIN C_TaskMaintenance tm ON t.taskID = tm.taskID
+LEFT JOIN C_Maintenance m ON tm.mainID = m.mainID
+LEFT JOIN A_Plant p ON m.plantId = p.id;
+1.3植物信息和防治管理交互
+植物防治视图：使用于园林地点保证人物可以对应防治找到对应植物
+CREATE VIEW PlantControlView AS
+SELECT A_Plant.id AS PlantID, A_Plant.altername, D_Control.conID, D_Control.conTime, D_Control.conLoc, D_Control.conPer, D_Control.status
+FROM A_Plant
+LEFT JOIN D_Control ON A_Plant.id = D_Control.id;
+1.4植物信息和监测管理交互
+植物设备指标视图：使用于园林地点保证植物可以对应设备找到对应指标
+CREATE VIEW E_PlantEquipmentIndicator AS
+SELECT 
+p.alterName,
+e.equipName,
+i.indexName
+FROM E_EquipDetecIndica edi
+JOIN E_Equipment e ON edi.equipNum = e.equipNum
+JOIN E_Indicator i ON edi.indexNum = i.indexNum
+JOIN E_Detection d ON edi.detecNum = d.detecNum
+JOIN A_Plant p ON d.plantId = p.id;
+1.索引
+2.1植物信息和植物分类交互
+CREATE INDEX idx_Plant_Kind ON A_Plant (classifyID);
+对于植物的分类编号进行检索，对于classifyID进行排序或分组操作
+2.2物信息和养护管理交互
+CREATE INDEX idx_maintenancePlant ON C_Maintenance (plantId);
+对于植物的植物编号检索，使用plantId连接植物信息表
+2.3植物信息和防治管理交互
+CREATE INDEX idx_controlPlant ON D_Control (plantId);
+对于植物的植物编号检索，使用plantId连接植物信息表
+2.4植物信息和监测管理交互
+CREATE INDEX idx_detectionPlant ON E_Detection (plantId); 
+对于植物的植物编号检索，使用plantId连接植物信息表
+
+(三)数据库高级编程
+1.园林植物基本信息管理
+1.1存储过程
+实现方案：
+CREATE PROCEDURE GetPlantDetailsById
+    @plantId VARCHAR(50) -- 输入参数：植物编号
+AS
+BEGIN
+    SELECT
+        p.altername AS PlantName,
+        c1.alterName AS FamilyName,
+        c2.alterName AS GenusName,
+        a.province,
+        a.city
+    FROM
+        A_Plant p
+    JOIN
+        B_Classification c1 ON p.classifyID = c1.classifyID
+    LEFT JOIN
+        B_Classification c2 ON c1.classifyID = c2.classifyID_parent
+    LEFT JOIN
+        B_Area a ON p.disAreaID = a.disAreaID
+    WHERE
+        p.id = @plantId;
+END;
+适用范围：
+适用于进行植物的名称、科属种和对应的分布地区联合查询，将植物基本信息表、植物分类表、分布地区表联动
+1.2触发器
+实现方案：
+CREATE TRIGGER PreventDeletePlantTrigger
+ON A_Plant
+INSTEAD OF DELETE
+AS
+BEGIN
+  -- 存储未完成的任务列表
+  DECLARE @UnfinishedTasks NVARCHAR(MAX) = '';
+  -- 检查养护表中是否存在未完成的任务
+  IF EXISTS (SELECT 1 FROM C_Maintenance WHERE status = '未完成' OR status = '进行中')
+  BEGIN
+    SET @UnfinishedTasks = '养护任务';
+  END
+  -- 检查防治表中是否存在未完成的任务
+  IF EXISTS (SELECT 1 FROM D_Control WHERE status = '未完成' OR status = '进行中')
+  BEGIN
+    IF @UnfinishedTasks <> ''
+      SET @UnfinishedTasks = @UnfinishedTasks + ', 防治任务';
+    ELSE
+      SET @UnfinishedTasks = '防治任务';
+  END
+  -- 检查监测表中是否存在未完成的任务
+  IF EXISTS (SELECT 1 FROM E_Detection WHERE status = '未完成' OR status = '进行中')
+  BEGIN
+    IF @UnfinishedTasks <> ''
+      SET @UnfinishedTasks = @UnfinishedTasks + ', 监测任务';
+    ELSE
+      SET @UnfinishedTasks = '监测任务';
+  END
+  -- 如果存在未完成的任务，则抛出错误提示
+  IF @UnfinishedTasks <> ''
+  BEGIN
+    DECLARE @ErrorMessage NVARCHAR(MAX) = '无法删除植物，存在未完成的 ' + @UnfinishedTasks + '！';
+    RAISERROR(@ErrorMessage, 16, 1);
+    ROLLBACK TRANSACTION;
+    RETURN;
+  END
+  -- 如果没有未完成的任务，则可以执行植物删除操作
+  DELETE FROM A_Plant WHERE id IN (SELECT id FROM deleted);
+END;
+适用范围：
+当删除植物信息时，若当前植物存在养护、防治、监测其中任一任务时，禁止删除相关数据
+
+2.园林植物分类管理
+2.1存储过程
+实现方案：
+CREATE PROCEDURE usp_DeleteB_Classification
+    @classifyID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- 检查是否存在引用该数据的记录
+    IF EXISTS (SELECT 1 FROM B_Classification WHERE classifyID_parent = @classifyID)
+    BEGIN
+        RAISERROR('无法删除，存在引用该数据的记录。', 16, 1);
+        RETURN;
+    END;
+    -- 执行删除操作
+    DELETE FROM B_Classification
+    WHERE classifyID = @classifyID;
+    SELECT '删除成功' AS Message;
+END;
+2.2触发器
+实现方案：
+CREATE TRIGGER trg_B_Classification_Delete
+ON B_Classification
+INSTEAD OF DELETE
+AS
+BEGIN
+    -- 检查是否存在引用该数据的记录
+    IF EXISTS (SELECT 1 FROM B_Classification WHERE classifyID_parent IN (SELECT classifyID FROM deleted))
+    BEGIN
+        RAISERROR('无法删除，存在引用该数据的记录。', 16, 1);
+        ROLLBACK TRANSACTION; -- 取消删除操作
+        RETURN;
+    END;
+    
+    -- 执行删除操作
+    DELETE FROM B_Classification
+    WHERE classifyID IN (SELECT classifyID FROM deleted);
+    
+    COMMIT TRANSACTION; -- 提交事务
+END;
+适用范围：
+该触发器是实现的是，在分类表中的树状存储结构中，如果要删除数据，那么就要满足被删除的这条数据不可以被其他记录所引用，不可以有子节点数据，否则就不可以执行删除操作，保证数据的完整性。
+
+3.园林植物养护管理
+3.1存储过程
+实现方案：
+CREATE PROCEDURE proc_C_TaskMaintenance_Select
+AS
+BEGIN
+    SELECT *
+    FROM [C_TaskMaintenance]
+    WHERE mainID = 2010;
+END
+EXEC proc_C_TaskMaintenance_Select
+适用范围：
+在数据库中查找表中mainID为 2010的记录并返回所有相关数据。整个数据表中按照顺序进行实现，查询表中mainID为 2010的记录为最后一条，从而确保整个数据表的完整性。
+3.2触发器
+实现方案：
+CREATE TRIGGER trg_C_TaskMaintenance_Update
+ON C_TaskMaintenance
+AFTER UPDATE
+AS
+BEGIN
+  IF UPDATE(taskID) OR UPDATE(mainID)
+  BEGIN
+    PRINT 'C_TaskMaintenance信息已出现修改。';
+  END
+END;
+适用范围：
+数据表中任意数据项进行修改，触发器给出相关提示信息。数据表为整个任务中的关系连接表，数据表出现修改时给出相关提示信息，有助于数据表相关安全性维护。
+
+4.园林植物病虫害防治管理
+4.1存储过程
+CREATE PROCEDURE select_S
+AS  
+BEGIN  
+    SELECT conPer FROM D_Control WHERE status='未完成' ;  
+END  
+-- 执行存储过程  
+EXECUTE select_S;
+适用范围：便于上级主管部门通过防治（任务）表，查询具体工作人员的执行情况，上级主管部门查到防治任务“未完成”时采取相应措施提醒防治人员进行工作。通过使用该存储过程，可以在数据库端执行复杂的操作，从而简化客户端应用程序的复杂性。同时只允许通过存储过程进行数据操作，从而提高数据的安全性。
+4.2触发器
+CREATE TRIGGER trg_D_MediPestCon_Update 
+ON D_MediPestCon 
+AFTER UPDATE 
+AS 
+BEGIN 
+IF UPDATE(conID) OR UPDATE(pestID) OR UPDATE(mediID) 
+BEGIN 
+PRINT 'D_MediPestCon修改成功。'; 
+END ELSE BEGIN PRINT '没有字段被更新。'; 
+END; END; 
+适用场景：触发器的功能是检查在更新操作中哪些字段被更改了。如果conID、pestID或mediID中的任何一个字段被更新，它将打印出"D_MediPestCon修改成功。"；如果所有字段都没有被更新，它将打印出"没有字段被更新。"
+
+5.园林植物监测管理
+5.1存储过程
+实现方案：
+CREATE PROCEDURE proc_E_EquipDetecIndica_Select
+AS
+BEGIN
+    SELECT *
+    FROM [E_EquipDetecIndica]
+    WHERE detecNum = 3010;
+END
+EXEC proc_E_EquipDetecIndica_Select
+适用范围：
+在数据库中查找表中detecNum为 3010的记录并返回所有相关数据。整个数据表中按照顺序进行实现，查询表中detecNum为 3010的记录为最后一条，从而确保整个数据表的完整性。
+5.2触发器
+实现方案：
+CREATE TRIGGER trg_E_EquipDetecIndica_Update
+ON E_EquipDetecIndica
+AFTER UPDATE
+AS
+BEGIN
+  IF UPDATE(equipNum) OR UPDATE(indexNum) OR UPDATE(detecNum)
+  BEGIN
+    PRINT 'E_EquipDetecIndica信息已出现修改。';
+  END
+END;
+适用范围：
+数据表中任意数据项进行修改，触发器给出相关提示信息。数据表为整个任务中的关系连接表，数据表出现修改时给出相关提示信息，有助于数据表相关安全性维护。
+实现方案：
+CREATE TRIGGER trg_E_EquipDetecIndica_Abnormal
+ON E_EquipDetecIndica
+AFTER UPDATE
+AS
+BEGIN
+  IF UPDATE(indexNum) 
+  BEGIN
+    IF EXISTS (SELECT 1 FROM inserted WHERE indexNum IN (2004, 2005))
+    BEGIN
+      PRINT 'E_EquipDetecIndica信息出现异常。';
+    END
+  END
+END;
+适用范围：
+数据表中指标信息出现异常，触发器给出相关提示信息。
