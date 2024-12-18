@@ -1,0 +1,1 @@
+# Design-and-Implementation-of-Integrated-Management-Platform-for-Garden-Plants
